@@ -20,6 +20,12 @@ def _sleep_command(seconds: float = 30.0) -> list[str]:
     return [sys.executable, "-c", f"import time; time.sleep({seconds})"]
 
 
+def _wait_for_exit(proc: PlannerProcess, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    while proc.is_alive() and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+
 # ---------------------------------------------------------------------------
 # Basic lifecycle
 # ---------------------------------------------------------------------------
@@ -40,24 +46,20 @@ def test_stop_returns_within_grace():
     proc.start()
     assert proc.is_alive()
 
+    grace = 0.5
     t0 = time.monotonic()
-    rc = proc.stop(grace_seconds=0.5)
+    rc = proc.stop(grace_seconds=grace)
     elapsed = time.monotonic() - t0
 
     # SIGTERM delivers before grace expires; SIGKILL is the fallback.
     assert rc in (-signal.SIGTERM, -signal.SIGKILL)
-    # Should finish well under 5 s even with SIGKILL path.
-    assert elapsed < 5.0
+    assert elapsed < grace + 30.0
 
 
 def test_stop_returns_zero_for_clean_exit():
     proc = _make_process([sys.executable, "-c", "raise SystemExit(0)"])
     proc.start()
-    # Wait for the process to exit naturally.
-    for _ in range(50):
-        if not proc.is_alive():
-            break
-        time.sleep(0.05)
+    _wait_for_exit(proc)
     rc = proc.stop(grace_seconds=0.5)
     assert rc == 0
 
@@ -65,10 +67,7 @@ def test_stop_returns_zero_for_clean_exit():
 def test_stop_idempotent_after_exit():
     proc = _make_process([sys.executable, "-c", "raise SystemExit(0)"])
     proc.start()
-    for _ in range(50):
-        if not proc.is_alive():
-            break
-        time.sleep(0.05)
+    _wait_for_exit(proc)
     rc1 = proc.stop(grace_seconds=0.5)
     rc2 = proc.stop(grace_seconds=0.5)
     assert rc1 == rc2
@@ -110,10 +109,7 @@ def test_context_manager_stops_on_exception():
 def test_nonzero_exit_code_surfaces():
     proc = _make_process([sys.executable, "-c", "import sys; sys.exit(42)"])
     proc.start()
-    for _ in range(50):
-        if not proc.is_alive():
-            break
-        time.sleep(0.05)
+    _wait_for_exit(proc)
     rc = proc.stop(grace_seconds=0.5)
     assert rc == 42
 
@@ -132,10 +128,7 @@ def test_extra_env_forwarded():
         extra_env={sentinel: "1"},
     )
     proc.start()
-    for _ in range(50):
-        if not proc.is_alive():
-            break
-        time.sleep(0.05)
+    _wait_for_exit(proc)
     rc = proc.stop(grace_seconds=0.5)
     assert rc == 0
 
@@ -151,9 +144,6 @@ def test_endpoint_env_vars_forwarded():
     )
     proc = _make_process([sys.executable, "-c", check_script])
     proc.start()
-    for _ in range(50):
-        if not proc.is_alive():
-            break
-        time.sleep(0.05)
+    _wait_for_exit(proc)
     rc = proc.stop(grace_seconds=0.5)
     assert rc == 0

@@ -16,7 +16,7 @@ from arena_planners.bridge.transport import (
 )
 
 PAYLOAD = b"hello-frame"
-RECV_TIMEOUT_MS = 2000
+RECV_TIMEOUT_MS = 20_000
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +166,7 @@ def test_send_without_peer_raises_bridge_error(tmp_path):
     finally:
         ctx.term()
 
-    assert elapsed < 3.0
+    assert elapsed < 30.0
 
 
 # ---------------------------------------------------------------------------

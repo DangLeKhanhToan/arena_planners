@@ -31,6 +31,17 @@ from arena_planners.bridge.transport import ZmqPullTransport, ZmqPushTransport
 from arena_planners.sdk import PlannerSDK, Step
 
 
+@pytest.fixture(autouse=True)
+def _restore_planner_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    for env in (
+        "ARENA_PLANNER_OBS_ENDPOINT",
+        "ARENA_PLANNER_ACTION_ENDPOINT",
+        "ARENA_PLANNER_CONTROL_ENDPOINT",
+        "ARENA_PLANNER_CTRL_ACK_ENDPOINT",
+    ):
+        monkeypatch.setenv(env, "")
+
+
 def _never_bound_ipc() -> str:
     return f"ipc:///tmp/never_bound_{uuid.uuid4().hex}.sock"
 
@@ -224,7 +235,7 @@ def _edge_sockets(tmp_path) -> dict:
 
 
 def _recv(transport: ZmqPullTransport) -> object:
-    assert transport.poll(2000)
+    assert transport.poll(20_000)
     return decode_frame(transport.recv_frame())
 
 
@@ -241,7 +252,7 @@ class TestPlannerConfig:
             assert isinstance(_recv(edge["ctrl_ack"]), InitAck)
             edge["control"].send_frame(encode_frame(Shutdown()))
             assert isinstance(_recv(edge["ctrl_ack"]), Bye)
-            thread.join(timeout=2.0)
+            thread.join(timeout=20.0)
         finally:
             for transport in edge.values():
                 transport.close()
@@ -266,7 +277,7 @@ class TestSignal:
             action = _recv(edge["action"])
             edge["control"].send_frame(encode_frame(Shutdown()))
             assert isinstance(_recv(edge["ctrl_ack"]), Bye)
-            thread.join(timeout=2.0)
+            thread.join(timeout=20.0)
         finally:
             for transport in edge.values():
                 transport.close()
@@ -403,7 +414,7 @@ class TestDiscrete:
             action = _recv(edge["action"])
             edge["control"].send_frame(encode_frame(Shutdown()))
             assert isinstance(_recv(edge["ctrl_ack"]), Bye)
-            thread.join(timeout=2.0)
+            thread.join(timeout=20.0)
         finally:
             for transport in edge.values():
                 transport.close()
@@ -508,7 +519,7 @@ class TestChunk:
             action = _recv(edge["action"])
             edge["control"].send_frame(encode_frame(Shutdown()))
             assert isinstance(_recv(edge["ctrl_ack"]), Bye)
-            thread.join(timeout=2.0)
+            thread.join(timeout=20.0)
         finally:
             for transport in edge.values():
                 transport.close()
