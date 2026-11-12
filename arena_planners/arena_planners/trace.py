@@ -11,7 +11,6 @@ import re
 import time
 import typing
 
-import cv2
 import numpy as np
 
 if typing.TYPE_CHECKING:
@@ -144,6 +143,8 @@ class Tracer:
         self._write(rec)
 
     def _save_frame(self, rgb: np.ndarray, seq: int) -> str:
+        import cv2
+
         assert self._dir is not None
         name = f"frames/{seq:07d}.jpg"
         bgr = cv2.cvtColor(np.ascontiguousarray(rgb[..., :3]).astype(np.uint8), cv2.COLOR_RGB2BGR)
