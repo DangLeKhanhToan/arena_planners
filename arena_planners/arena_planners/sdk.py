@@ -208,7 +208,10 @@ class PlannerSDK:
         if isinstance(frame, Reset):
             if on_reset is not None:
                 on_reset(frame.episode_id, frame.initial_state)
-            self._tracer.reset(frame.episode_id, frame.initial_state)
+            try:
+                self._tracer.reset(frame.episode_id, frame.initial_state)
+            except Exception as exc:
+                _log.warning("trace: reset not recorded: %r", exc)
             self._active = True
             self._send_control(ResetAck())
             return True
@@ -216,7 +219,10 @@ class PlannerSDK:
             self._active = False
             if on_cancel is not None:
                 on_cancel()
-            self._tracer.cancel()
+            try:
+                self._tracer.cancel()
+            except Exception as exc:
+                _log.warning("trace: cancel not recorded: %r", exc)
             self._send_control(CancelAck())
             return True
         if isinstance(frame, Shutdown):
